@@ -13,6 +13,7 @@ extern "C" {
 #include <aerospike/as_status.h>
 #include <aerospike/as_stringmap.h>
     as_exp *next_in_val_exp (void);
+    as_exp *pi_est_exp (void);
 }
 #include <unistd.h>
 #include <atomic>
@@ -45,7 +46,7 @@ inline void __dieunless (const char *msg, const char *file, int line) { fprintf 
 using namespace std;
 
 static const char USAGE[] =
-    R"(usage: foo [options]
+    R"(usage: pushpoints [options]
 
 options:
   -h --help
@@ -72,18 +73,19 @@ uint32_t lcg_parkmiller (uint32_t state)
 }
 static uint64_t usec_now (void) { return chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now().time_since_epoch()).count(); }
 
-pair<int64_t, int64_t> insertPoint (int64_t ki, double xv, double yv, as_exp *expp)
+tuple<int64_t, int64_t, double> insertPoint (int64_t ki, double xv, double yv, as_exp *expin, as_exp *exppi)
 {
     as_key key0;
     as_key_init_int64 (&key0, "ns0", "s0", ki);
 
     as_operations ops0;
-    as_operations_inita (&ops0, 6);
+    as_operations_inita (&ops0, 7);
     
     dieunless (as_operations_add_write_double (&ops0, "x", xv));
     dieunless (as_operations_add_write_double (&ops0, "y", yv));
-    dieunless (as_operations_exp_write (&ops0, "in", expp, AS_EXP_WRITE_DEFAULT));
+    dieunless (as_operations_exp_write (&ops0, "in", expin, AS_EXP_WRITE_DEFAULT));
     dieunless (as_operations_add_incr (&ops0, "tot", 1));
+    dieunless (as_operations_exp_read (&ops0, "pi", exppi, AS_EXP_READ_DEFAULT));
     dieunless (as_operations_add_read (&ops0, "in"));
     dieunless (as_operations_add_read (&ops0, "tot"));
 
@@ -92,16 +94,18 @@ pair<int64_t, int64_t> insertPoint (int64_t ki, double xv, double yv, as_exp *ex
     dieunless (aerospike_key_operate (&as, &err, nullptr, &key0, &ops0, &recp) == AEROSPIKE_OK);
     dieunless (recp);
     as_bin *results = recp->bins.entries;
-    int64_t in = as_bin_get_value (&results[4])->integer.value;
-    int64_t tot = as_bin_get_value (&results[5])->integer.value;
+    double piest = as_bin_get_value (&results[4])->dbl.value;
+    int64_t in = as_bin_get_value (&results[5])->integer.value;
+    int64_t tot = as_bin_get_value (&results[6])->integer.value;
     
     as_record_destroy (recp);
     as_operations_destroy (&ops0);
-    return {in, tot};
+    return {in, tot, piest};
 }
 
 int main (int argc, char **argv, char **envp)
 {
+    srand (arc4random ());
     d = docopt::docopt (USAGE, {argv+1, argv+argc});
     const string& hostport = d["--asdb"].asString ();
     size_t cpos = hostport.find (':');
@@ -133,7 +137,8 @@ int main (int argc, char **argv, char **envp)
 	dieunless (aerospike_key_put (&as, &err, nullptr, &key0, &rec0) == AEROSPIKE_OK);
     }
 
-    auto expp = next_in_val_exp ();
+    auto expin = next_in_val_exp ();
+    auto exppi = pi_est_exp ();
     uniform_real_distribution<double> rdist0 (0.0, 1.0);
     default_random_engine re;
 
@@ -143,11 +148,10 @@ int main (int argc, char **argv, char **envp)
     uint64_t tstart, tlast;
     tstart = tlast = usec_now ();
     while (running) {
-	const auto [in, tot] = insertPoint (ki, rdist0 (re), rdist0 (re), expp);
+	const auto [in, tot, piest] = insertPoint (ki, rdist0 (re), rdist0 (re), expin, exppi);
 	if (!(++iter % 1024) && (usec_now () >= (tlast + 1000000))) {
-	    double piapprox = (double)(4 * in) / (double) tot;
 	    tlast = usec_now ();
-	    printf ("iteration %d:\t%ld\t%ld\t%lf\n", iter, in, tot, piapprox);
+	    printf ("iteration %d:\t%ld\t%ld\t%lf\n", iter, in, tot, piest);
 	}
     }
 

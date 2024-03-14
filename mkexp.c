@@ -20,3 +20,16 @@ as_exp *next_in_val_exp (void)
     
     return expr;
 }
+
+as_exp *pi_est_exp (void)
+{
+    as_exp_build (expr,
+		  as_exp_div (
+		      as_exp_to_float (
+		  	  as_exp_mul (
+			      as_exp_int (4),
+			      as_exp_bin_int ("in"))),
+		      as_exp_to_float (
+			  as_exp_bin_int ("tot"))));
+    return expr;
+}

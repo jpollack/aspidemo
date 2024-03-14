@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(toolset LANGUAGES C CXX)
+project(aspidemo LANGUAGES C CXX)
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 set(CMAKE_CXX_STANDARD 17)	
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
@@ -63,7 +63,7 @@ fetchcontent_makeavailable(docopt)
 # fetchcontent_makeavailable(hdrhistogram)
 # fetchcontent_makeavailable(concurrentqueue)
 
-add_executable(foo foo.cpp mkexp.c)
-target_link_libraries(foo docopt aerospike Threads::Threads)
+add_executable(pushpoints pushpoints.cpp mkexp.c)
+target_link_libraries(pushpoints docopt aerospike Threads::Threads)
 
 
