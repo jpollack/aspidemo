@@ -52,8 +52,7 @@ options:
   --asdb=SOCKADDR       Aerospike server [default: 127.0.0.1:3000]
   --ns=STRING           Namespace [default: ns0]
   --set=STRING          Set name [default: s0]
-  --rpp=NUMBER          Records per partition [default: 100]
-  --qwidth=NUMBER       Range query width [default: 1000]
+  --clear               Reset first
 
 )";
 
@@ -103,8 +102,7 @@ pair<int64_t, int64_t> insertPoint (int64_t ki, double xv, double yv, as_exp *ex
 
 int main (int argc, char **argv, char **envp)
 {
-        d = docopt::docopt (USAGE, {argv+1, argv+argc});
-     
+    d = docopt::docopt (USAGE, {argv+1, argv+argc});
     const string& hostport = d["--asdb"].asString ();
     size_t cpos = hostport.find (':');
     dieunless (cpos != string::npos);
@@ -124,15 +122,17 @@ int main (int argc, char **argv, char **envp)
     int64_t ki = 1000;
     as_key_init_int64 (&key0, "ns0", "s0", ki);
 
-    as_record rec0;
-    as_record_inita (&rec0, 4);
-    as_record_set_double (&rec0, "x", 0.0f);
-    as_record_set_double (&rec0, "y", 0.0f);
-    as_record_set_int64 (&rec0, "in", 0);
-    as_record_set_int64 (&rec0, "tot", 0);
+    if (d["--clear"].asBool ()) {
+	as_record rec0;
+	as_record_inita (&rec0, 4);
+	as_record_set_double (&rec0, "x", 0.0f);
+	as_record_set_double (&rec0, "y", 0.0f);
+	as_record_set_int64 (&rec0, "in", 0);
+	as_record_set_int64 (&rec0, "tot", 0);
 
-    dieunless (aerospike_key_put (&as, &err, nullptr, &key0, &rec0) == AEROSPIKE_OK);
-    
+	dieunless (aerospike_key_put (&as, &err, nullptr, &key0, &rec0) == AEROSPIKE_OK);
+    }
+
     auto expp = next_in_val_exp ();
     uniform_real_distribution<double> rdist0 (0.0, 1.0);
     default_random_engine re;
